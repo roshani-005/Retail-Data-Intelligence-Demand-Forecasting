@@ -1,58 +1,50 @@
-import os
+"""Generate business analytics from curated CSVs without requiring PostgreSQL."""
 from pathlib import Path
 import pandas as pd
-from sqlalchemy import create_engine, text
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUTS = ROOT / "outputs"
-OUTPUTS.mkdir(exist_ok=True)
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise SystemExit("Set DATABASE_URL before running analytics.py")
+DATA = ROOT / "data" / "processed"
+OUT = ROOT / "data" / "processed"
 
-engine = create_engine(DATABASE_URL)
-queries = {
-    "executive_kpis": """
-        SELECT SUM(revenue) AS total_revenue,
-               SUM(profit) AS total_profit,
-               SUM(quantity) AS units_sold,
-               COUNT(DISTINCT transaction_id) AS orders,
-               ROUND(SUM(revenue) / NULLIF(COUNT(DISTINCT transaction_id), 0), 2) AS avg_order_value
-        FROM retail.fact_sales;
-    """,
-    "category_performance": """
-        SELECT p.category, SUM(f.revenue) AS revenue, SUM(f.profit) AS profit
-        FROM retail.fact_sales f JOIN retail.dim_product p ON p.product_id=f.product_id
-        GROUP BY p.category ORDER BY revenue DESC;
-    """,
-    "monthly_growth": """
-        WITH monthly AS (
-            SELECT d.year, d.month, SUM(f.revenue) AS revenue
-            FROM retail.fact_sales f JOIN retail.dim_date d ON d.date_key=f.date_key
-            GROUP BY d.year, d.month
-        ), growth AS (
-            SELECT *, LAG(revenue) OVER (ORDER BY year, month) AS previous_month_revenue
-            FROM monthly
-        )
-        SELECT *, ROUND(100.0*(revenue-previous_month_revenue)/NULLIF(previous_month_revenue,0),2) AS mom_growth_pct
-        FROM growth ORDER BY year, month;
-    """,
-    "store_performance": """
-        SELECT s.store_name, s.region, SUM(f.revenue) AS revenue,
-               SUM(f.profit) AS profit, SUM(f.quantity) AS units
-        FROM retail.fact_sales f JOIN retail.dim_store s ON s.store_id=f.store_id
-        GROUP BY s.store_name, s.region ORDER BY revenue DESC;
-    """,
-    "top_products": """
-        SELECT p.product_name, p.category, SUM(f.revenue) AS revenue,
-               SUM(f.profit) AS profit,
-               RANK() OVER (ORDER BY SUM(f.revenue) DESC) AS revenue_rank
-        FROM retail.fact_sales f JOIN retail.dim_product p ON p.product_id=f.product_id
-        GROUP BY p.product_name, p.category ORDER BY revenue_rank;
-    """,
-}
 
-for name, query in queries.items():
-    df = pd.read_sql(text(query), engine)
-    df.to_csv(OUTPUTS / f"{name}.csv", index=False)
-    print(f"Exported {name}: {len(df):,} rows")
+def main():
+    fact = pd.read_csv(DATA / "fact_sales.csv")
+    dates = pd.read_csv(DATA / "dim_date.csv")
+    products = pd.read_csv(DATA / "dim_product.csv")
+    customers = pd.read_csv(DATA / "dim_customer.csv")
+    locations = pd.read_csv(DATA / "dim_location.csv")
+
+    fact["order_date"] = pd.to_datetime(fact["order_date_key"].astype(str), format="%Y%m%d")
+    fact = fact.merge(products[["product_key", "product_id", "product_name", "category", "sub_category"]], on="product_key")
+    fact = fact.merge(customers[["customer_key", "customer_id", "customer_name", "segment"]], on="customer_key")
+    fact = fact.merge(locations[["location_key", "state", "region"]], on="location_key")
+
+    monthly = fact.groupby(fact["order_date"].dt.to_period("M")).agg(
+        total_sales=("sales", "sum"),
+        orders=("order_id", "nunique"),
+        customers=("customer_key", "nunique")
+    ).reset_index()
+    monthly["month"] = monthly["order_date"].astype(str)
+    monthly["mom_growth_pct"] = monthly["total_sales"].pct_change().mul(100)
+    monthly.drop(columns="order_date").to_csv(OUT / "bi_monthly_sales.csv", index=False)
+
+    product = fact.groupby(["product_id", "product_name", "category", "sub_category"], as_index=False).agg(
+        total_sales=("sales", "sum"), orders=("order_id", "nunique")
+    ).sort_values("total_sales", ascending=False)
+    product.to_csv(OUT / "bi_product_performance.csv", index=False)
+
+    customer = fact.groupby(["customer_id", "customer_name", "segment"], as_index=False).agg(
+        total_sales=("sales", "sum"), orders=("order_id", "nunique")
+    ).sort_values("total_sales", ascending=False)
+    customer.to_csv(OUT / "bi_customer_performance.csv", index=False)
+
+    region = fact.groupby(["region", "state"], as_index=False).agg(
+        total_sales=("sales", "sum"), orders=("order_id", "nunique"), customers=("customer_key", "nunique")
+    ).sort_values("total_sales", ascending=False)
+    region.to_csv(OUT / "bi_region_performance.csv", index=False)
+
+    print("Analytics outputs written to data/processed/")
+
+
+if __name__ == "__main__":
+    main()
