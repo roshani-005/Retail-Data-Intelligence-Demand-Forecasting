@@ -1,0 +1,44 @@
+-- Core KPIs
+Total Sales = SUM(fact_sales[sales])
+
+Orders = DISTINCTCOUNT(fact_sales[order_id])
+
+Customers = DISTINCTCOUNT(dim_customer[customer_id])
+
+Average Order Value = DIVIDE([Total Sales], [Orders])
+
+-- Time intelligence
+Previous Month Sales =
+CALCULATE(
+    [Total Sales],
+    DATEADD(dim_date[full_date], -1, MONTH)
+)
+
+MoM Sales Growth % =
+DIVIDE(
+    [Total Sales] - [Previous Month Sales],
+    [Previous Month Sales]
+)
+
+-- Product/customer contribution
+Sales Contribution % =
+DIVIDE(
+    [Total Sales],
+    CALCULATE([Total Sales], ALL(dim_product))
+)
+
+-- Forecast page: use the imported sales_forecast table.
+Forecast Sales = SUM(sales_forecast[predicted_sales])
+
+Forecast MAE = AVERAGEX(
+    sales_forecast,
+    ABS(sales_forecast[sales] - sales_forecast[predicted_sales])
+)
+
+Forecast RMSE =
+SQRT(
+    AVERAGEX(
+        sales_forecast,
+        POWER(sales_forecast[sales] - sales_forecast[predicted_sales], 2)
+    )
+)
