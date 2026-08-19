@@ -1,0 +1,30 @@
+name: Python CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Generate raw data
+        run: python src/generate_data.py
+      - name: Run ETL
+        run: python src/etl.py
+      - name: Run forecasting
+        run: python src/forecast.py
+      - name: Validate outputs
+        run: |
+          test -f outputs/data_quality_report.csv
+          test -f outputs/forecast_metrics.csv
+          test -f outputs/demand_forecast.csv
+          test -f outputs/business_recommendations.csv
