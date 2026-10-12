@@ -1,58 +1,44 @@
-# Retail Data Intelligence & Demand Forecasting
+# Retail Data Intelligence & Sales Forecasting
 
-An end-to-end **Retail Data Intelligence** project built specifically around the **TresVista Analyst – Data Intelligence Group** prerequisites. It demonstrates Python data gathering/cleansing, ETL, relational DBMS design, SQL analytics, Power BI, data engineering, sales forecasting, basic Generative AI concepts, analytics, and database optimization.
+An end-to-end analytics and data-engineering project built with the **public Superstore transaction dataset**. It uses Python to clean and validate transaction data, loads a relational star schema into PostgreSQL, applies SQL for business analytics and time-series feature engineering, evaluates an XGBoost daily-sales forecast against a seasonal-naive baseline, and includes a safety-checked text-to-SQL prototype.
 
-## Business Objective
-Turn raw retail transaction data into a reliable analytical system that answers how sales change over time, which products/customers/regions drive sales, which segments need attention, and what the near-term sales trend looks like.
+## Project objective
+
+Turn public retail transaction records into a reproducible analytics workflow: source-data quality checks, curated relational tables, reusable SQL analysis, daily sales forecasting, and interpretable model evaluation.
 
 ## Architecture
 
 ```text
-Real Superstore CSV
-        ↓
-Python Data Gathering
-        ↓
-Cleansing + Normalization + Validation
-        ↓
-ETL Pipeline
-        ↓
-PostgreSQL Relational Model
-        ↓
-SQL Analytics ───────────→ Curated BI Outputs
-        ↓                         ↓
-Power BI Dashboard         XGBoost Sales Forecast
-        ↓                         ↓
-Business Recommendations ←───────┘
-        ↓
-Basic GenAI / Text-to-SQL
+Public Superstore transaction CSV
+              ↓
+       Python ETL + checks
+              ↓
+  Curated fact/dimension tables
+              ↓
+     PostgreSQL star schema
+              ↓
+ SQL analytics + time-series features
+          ↙             ↘
+ Business KPI outputs   Forecast evaluation
+                             ↓
+              Seasonal-naive vs XGBoost
+                             ↓
+                    Metrics + predictions
+              ↓
+     Safety-checked text-to-SQL demo
 ```
 
-## TresVista Prerequisite Coverage
+## Dataset and scope
 
-| JD prerequisite | Project implementation |
-|---|---|
-| Python data gathering, cleansing & normalization | `src/etl.py` |
-| Hands-on ETL | Extract → Transform → Validate → Load |
-| Power BI / visualization | `powerbi/` model, dashboard plan and DAX |
-| DBMS fundamentals | PK/FK constraints, normalization, integrity and transactions |
-| SQL | Joins, Views, Triggers, Window Functions and CTEs |
-| Analytical/problem-solving/communication | KPI definitions, business questions and recommendations |
-| Data Engineering | Modular Python pipeline + PostgreSQL loading |
-| Basic Generative AI | Natural-language-to-SQL concept + SQL safety validation |
-| Analytics domain | Retail customer/product/region/time analytics |
-| Relational design & optimization | Star schema, indexes and reusable views |
-
-## Dataset
-
-Place the supplied Superstore transaction CSV at:
+Download a public Superstore transaction CSV and place it at:
 
 ```text
 data/raw/superstore.csv
 ```
 
-The pipeline is schema-aware and **does not invent unsupported fields** such as profit, quantity, inventory, cost or store IDs. Because the supplied data provides `Sales`, the forecasting target is **daily sales value** rather than fabricated unit demand.
+The ETL validates the expected schema and produces a data-quality report. It does not invent fields that are absent from the source, such as profit, quantity, inventory, unit cost, or store IDs. Since the source contains `Sales`, the forecasting target is **daily sales value**, not unit demand.
 
-Expected source fields include:
+Expected fields include:
 
 ```text
 Row ID, Order ID, Order Date, Ship Date, Ship Mode,
@@ -61,39 +47,42 @@ Postal Code, Region, Product ID, Category, Sub-Category,
 Product Name, Sales
 ```
 
-## Project Structure
+## Project structure
 
 ```text
-data/raw/superstore.csv
-
-data/processed/
-
 src/
-  etl.py             # extraction, cleansing, normalization, validation
+  etl.py             # cleansing, normalization, validation, star-schema outputs
   load_sql.py        # PostgreSQL loader
-  analytics.py       # analytical outputs
-  forecast.py        # XGBoost sales forecasting
+  analytics.py       # curated business analytics
+  forecast.py        # seasonal-naive baseline and XGBoost evaluation
 
 sql/
-  schema.sql         # relational/star schema
-  indexes.sql        # optimization indexes
-  triggers.sql       # audit trigger
-  views.sql          # reusable reporting views
-  analytics.sql      # joins, CTEs and window functions
-
-powerbi/
-  dashboard.md       # dashboard design and data model
-  measures.dax       # KPI measures
+  schema.sql
+  indexes.sql
+  triggers.sql
+  views.sql
+  analytics.sql      # joins, CTEs, LAG, RANK and running totals
 
 genai/
-  text_to_sql.py     # basic NL-to-SQL concept + safety validation
-  README.md
+  text_to_sql.py     # offline template-based text-to-SQL demo + safety checks
+
+powerbi/
+  dashboard.md       # dashboard specification and data model
+  measures.dax       # reusable DAX measures
 
 docs/
-  JD_SKILL_COVERAGE.md
+  PROJECT_OVERVIEW.md
+
+tests/
+  test_pipeline.py
+
+.github/workflows/
+  ci.yml
 ```
 
-## Run
+The `powerbi/` folder contains a dashboard specification and DAX measures; it is **not a claim that a finished Power BI dashboard has been built**.
+
+## Run locally
 
 ```bash
 python -m venv .venv
@@ -101,10 +90,12 @@ python -m venv .venv
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python src/etl.py
+python src/analytics.py
 python src/forecast.py
+pytest -q
 ```
 
-For PostgreSQL:
+To load the curated tables into PostgreSQL, set a connection string and run the loader:
 
 ```text
 DATABASE_URL=postgresql+psycopg2://USER:PASSWORD@HOST:5432/retail_intelligence
@@ -114,7 +105,7 @@ DATABASE_URL=postgresql+psycopg2://USER:PASSWORD@HOST:5432/retail_intelligence
 python src/load_sql.py
 ```
 
-Run SQL in this order:
+Apply the SQL files in this order:
 
 ```text
 sql/schema.sql
@@ -124,46 +115,49 @@ sql/views.sql
 sql/analytics.sql
 ```
 
-## ETL Responsibilities
+## ETL and data quality
 
-1. Read the raw CSV.
-2. Normalize column names.
-3. Parse dates safely.
-4. Standardize categorical text.
-5. Remove duplicate source rows.
-6. Handle missing values without inventing business facts.
-7. Validate IDs, dates and sales.
-8. Build date, customer, product, location and sales tables.
-9. Write a data-quality report.
+The Python pipeline:
+1. Reads and normalizes the source columns.
+2. Parses dates and numeric sales values.
+3. standardizes text fields and removes duplicate source rows.
+4. Validates required fields, dates and non-negative sales.
+5. Builds date, customer, product, location and sales fact outputs.
+6. Writes `data/processed/data_quality_report.csv` with row counts and data-quality checks.
 
-## SQL
+## SQL analytics
 
-The SQL layer intentionally covers the exact SQL concepts named in the JD: joins, CTEs, views, triggers and window functions such as `LAG()` and `RANK()`. It also includes indexes for common joins and filters.
+The SQL layer demonstrates multi-table joins, CTEs, aggregations, views, triggers, indexes, `CASE`-style business logic, and window functions including `LAG()` and `RANK()`. Queries cover monthly sales and growth, product/category performance, customer contribution, geography and shipping mode.
 
-## Power BI
+## Forecast evaluation
 
-Four pages are planned:
+The target is daily sales value. Features include day-of-week, month, quarter, trend, lag-1, lag-7, lag-14, and 7-/28-day rolling means calculated from prior observations. The holdout is chronological; rows from the final period are not randomly shuffled.
 
-1. **Executive Overview** — Total Sales, Orders, Customers, AOV, monthly and regional trends.
-2. **Product & Category** — category/sub-category sales and top products.
-3. **Customer & Region** — segment, customer and geographic performance.
-4. **Forecast** — actual vs predicted sales and forecast error metrics.
+The benchmark is a **seasonal-naive forecast** that predicts each test date using sales from the same weekday one week earlier (`lag_7`). The XGBoost model is evaluated on the exact same holdout dates.
 
-## Forecasting
+| Model | MAE | RMSE | MAPE |
+|---|---:|---:|---:|
+| Seasonal naive (same weekday last week) | Generated by `src/forecast.py` | Generated by `src/forecast.py` | Generated by `src/forecast.py` |
+| XGBoost | Generated by `src/forecast.py` | Generated by `src/forecast.py` | Generated by `src/forecast.py` |
 
-Features include day-of-week, month, quarter, trend, lag-1, lag-7, lag-14, 7-day rolling mean and 28-day rolling mean. The final period is held out chronologically to avoid time leakage. Evaluation uses MAE and RMSE.
+The actual metric values are written to `data/processed/forecast_metrics.csv` when the public CSV is available and the forecast script is run. MAPE is computed only on holdout rows where actual sales are non-zero, and the CSV records the MAPE row count. The metrics file also records train rows, holdout rows, feature count and percentage improvement versus the baseline. Numeric results are intentionally not hard-coded here until they have been generated from the dataset.
 
-## Basic Generative AI
+Generated predictions are saved to `data/processed/sales_forecast.csv`, including actual sales, XGBoost predictions, the seasonal-naive prediction and absolute errors.
 
-The GenAI component demonstrates:
+## Text-to-SQL prototype
 
-```text
-Business Question → Natural Language → SQL → Safety Check → Database → Answer
-```
+The `genai/text_to_sql.py` module is an offline, template-based demonstration rather than a live LLM integration. It accepts a small set of example questions and validates generated SQL as read-only `SELECT`/`WITH` queries before use. The safety checks reject mutating statements and multiple SQL statements.
 
-It is intentionally basic because the core project focus is data engineering, SQL, BI and analytics.
+## Tests and continuous integration
 
-## Resume Version
+Pytest covers ETL transformation/data-quality behavior, forecast metric calculations, and text-to-SQL safety checks. GitHub Actions installs dependencies and runs the test suite on pushes and pull requests to `main`.
 
-**Retail Data Intelligence & Demand Forecasting | Python, SQL, PostgreSQL, Power BI, XGBoost**  
-Built an end-to-end retail data pipeline using Python to gather, cleanse, normalize and validate transaction data; designed a relational warehouse in PostgreSQL; developed SQL analytics using joins, CTEs, views and window functions; created Power BI KPI dashboards; and forecasted daily sales with XGBoost using lag and rolling time-series features with chronological validation.
+## Resume-ready summary
+
+**Retail Data Intelligence & Sales Forecasting | Python, SQL, PostgreSQL, XGBoost**
+
+- Built a Python ETL pipeline to clean, validate and load public Superstore transaction data into a PostgreSQL star schema, producing a data-quality report.
+- Developed SQL analytics with joins, CTEs and window functions for sales, product, customer, regional and time-series analysis; added a safety-checked text-to-SQL prototype.
+- Trained an XGBoost daily-sales forecast with lag and rolling features, using chronological holdout evaluation against a same-weekday-last-week baseline.
+
+Only include numeric dataset size or model-improvement claims on a resume after verifying them from the generated artifacts.
