@@ -1,80 +1,22 @@
-# TresVista Data Intelligence — Exact Prerequisite Coverage
+# Project Overview
 
-This project is intentionally mapped to **every prerequisite shown in the TresVista Analyst – Data Intelligence Group JD**. It does not add unrelated technologies just for keyword volume.
+## Purpose
 
-## 1. Strong skills in Data Gathering, Cleansing, and Normalization using Python
-- Read the supplied Superstore CSV with pandas.
-- Normalize source column names.
-- Parse and standardize dates.
-- Clean categorical/text fields.
-- Remove duplicate source rows.
-- Validate IDs and sales values.
-- Produce a data-quality report.
+This repository demonstrates an end-to-end retail analytics workflow using a public Superstore transaction dataset. The emphasis is on reproducible data preparation, relational modeling, SQL analytics, time-series forecasting, and lightweight query safety.
 
-## 2. Hands-on experience with ETL processes
-- Extract raw transaction data.
-- Transform and normalize it.
-- Validate quality and referential relationships.
-- Build curated dimension/fact outputs.
-- Load those outputs into PostgreSQL.
+## Skills and implementation
 
-## 3. Proficiency in Data Visualization using Tableau / Power BI / Qlik
-- Power BI is the selected BI tool.
-- Four dashboard pages are specified: Executive Overview, Product & Category, Customer & Region, and Forecast.
-- DAX measures cover Sales, Orders, Customers, AOV, MoM Growth and forecast error.
+- **Python ETL:** schema validation, column normalization, date parsing, duplicate handling, conservative row validation, and a data-quality report.
+- **PostgreSQL:** fact/dimension star schema, loading workflow, indexes, constraints, reusable views, and audit triggers.
+- **SQL analytics:** joins, CTEs, aggregations, `LAG()`, `RANK()`, running totals, and sales contribution analysis.
+- **Forecasting:** lag/rolling features, chronological holdout, XGBoost, and comparison against a same-weekday-last-week baseline.
+- **Text-to-SQL safety demo:** template-based query examples with read-only SQL validation; this is not a live LLM integration.
+- **Power BI preparation:** dashboard specification and DAX measures are provided; a completed interactive dashboard is not included.
 
-## 4. Good understanding of DBMS fundamentals
-- Primary keys and surrogate keys.
-- Foreign keys.
-- `NOT NULL`, `UNIQUE` and `CHECK` constraints.
-- Referential integrity.
-- Transactional PostgreSQL loading.
-- Fact/dimension separation.
+## Data assumptions
 
-## 5. Solid command of SQL, including Joins, Views, Triggers, Window Functions, CTEs, etc.
-- Multi-table joins.
-- Reusable SQL views.
-- Trigger-based audit logging.
-- CTEs for analytical decomposition.
-- `LAG()` for month-over-month growth.
-- `RANK()` for product ranking.
-- Running totals with window functions.
+The source dataset includes sales value but does not provide trustworthy profit, inventory, unit quantity, cost, or store fields for this project. The model therefore forecasts daily sales value and does not infer missing business measures.
 
-## 6. Strong analytical, problem-solving, and communication skills
-- Convert retail business questions into measurable KPIs.
-- Analyze product, customer, region, segment and time performance.
-- Evaluate forecast error using MAE/RMSE.
-- Document assumptions and data-quality decisions.
-- Translate results into stakeholder-friendly recommendations.
+## Generated artifacts
 
-## 7. Exposure to Data Engineering using Python, Spark, Databricks, or Snowflake
-- Python is the selected technology from the JD's alternatives.
-- ETL is modularized into extraction/transformation/validation/loading stages.
-- PostgreSQL provides the relational storage layer.
-- The project does not claim Spark, Databricks or Snowflake experience because they are alternatives in the prerequisite rather than required additions.
-
-## 8. Basic understanding of Generative AI concepts
-- Natural-language-to-SQL workflow.
-- Database schema as context for generation.
-- Read-only SQL safety validation.
-- Controlled database execution boundary.
-- Offline demo avoids requiring an external API key.
-
-## 9. Prior experience in the analytics domain
-- Retail sales analytics.
-- Customer and segment performance.
-- Product/category/sub-category analysis.
-- Regional/state analysis.
-- Time-series sales analysis.
-- Forecasting and business recommendations.
-
-## 10. Strong grasp of relational database design and optimization
-- Star-schema design with fact and dimension tables.
-- Surrogate and natural identifiers.
-- Foreign-key relationships.
-- Reusable reporting views.
-- Indexes on common joins and filters.
-- Data integrity constraints.
-
-## Scope rule
-All ten prerequisites are demonstrated through **one coherent retail business workflow**. No unrelated frameworks or technologies are added merely to make the repository larger.
+After running the pipeline, the `data/processed/` directory contains curated dimension/fact tables, a data-quality report, analytics extracts, forecast predictions, and model-vs-baseline metrics. Model performance claims should be taken from those generated artifacts rather than estimated in advance.
